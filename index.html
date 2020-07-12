@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>简易画板</title>
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+  <canvas id="myCanvas" width="1000" height="800"></canvas>
+  <div class="desc">
+    <h2>使用：</h2>
+    <ol>
+      <li>选择铅笔粗细：滑动或自己输入数值</li>
+      <li>选择颜色</li>
+      <li>点击铅笔按钮</li>
+      <li>在左边的画布上绘画</li>
+      <li>可以调节橡皮擦粗细点击按钮，涂抹</li>
+    </ol>
+    如果下载按钮失效，请右击选择保存~
+  </div>
+  <p class="options">
+    <button id="btn">下载图片</button>
+    铅笔粗细:<input id="penBold" type="range" value="1"/>
+    <input type="text" value="1" id="penBoldt"/>
+    颜色:<input type="color" id="col">
+    <button id="pencil">铅笔</button>
+    <button id="eraser">橡皮擦</button>
+    橡皮粗细:<input type="range" id="eraserBl"/>
+</p>
+<script src="js/draw.js"></script>
+</body>
+</html>
