@@ -2,7 +2,7 @@
 
 使用canvas制作的画板
 
-[预览](https://wallleap.github.io/draw/)
+[预览](https://wallleap.github.io/draw/index.html)
 
 操作说明：
 
