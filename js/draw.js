@@ -27,7 +27,7 @@ penBoldt.onkeydown = function (e) {
 }
 
 pencil.onclick = function () {
-  document.body.style.cursor = "url(../cur/pencil.cur) 12 12,auto";
+  document.body.style.cursor = "url(./cur/pencil.cur) 12 12,auto";
   c.onmousedown = function (e) {
     var e = e || event;
     var x = e.clientX - c.offsetLeft;
@@ -50,7 +50,7 @@ pencil.onclick = function () {
 
 
 eraser.onclick = function () {
-  document.body.style.cursor = "url(../cur/eraser.cur) 12 12,auto";
+  document.body.style.cursor = "url(./cur/eraser.cur) 12 12,auto";
   c.onmousedown = function (e) {
     var e = e || event;
     var x = e.clientX - c.offsetLeft;
