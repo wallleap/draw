@@ -30,6 +30,22 @@
   background-color: rgba(97, 97, 97, .5);
   box-shadow: 0 0 10px rgba(97, 97, 97, .3);
 }
+#btn{
+  display: inline-block;
+  margin-right: 20px;
+  color: #333;
+  text-decoration: none;
+  width: 60px;
+  height: 30px;
+  line-height: 30px;
+  border-radius: 5px;
+  background-color: #e5e5e5;
+  border: 1px solid rgba(178, 178, 178, .3);
+}
+#btn:hover{
+  background-color: rgba(97, 97, 97, .5);
+  box-shadow: 0 0 10px rgba(97, 97, 97, .3);
+}
 #pencil{
   margin-right: 0;
 }

@@ -81,12 +81,8 @@ window.onmouseup = function () {
 var btn = document.getElementById('btn');
 
 btn.onclick = function () {
-  var str = load(c);
-  var hre = document.createElement("a")
-  document.getElementById('hre').href = str;
-}
-
-function load(canvas) {
-  var load = canvas.toDataURL("image/png");
-  return load;
+  var myCanvas = document.getElementById('myCanvas');
+  var image = myCanvas.toDataURL("image/png").replace("image/png", "image/octet-stream;Content-Disposition: attachment;filename=foobar.png"); 
+  // var image = myCanvas.toDataURL("image/png").replace("image/png", "image/octet-stream"); 
+  window.location.href=image; // it will save locally 
 }
