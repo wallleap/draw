@@ -676,10 +676,28 @@ class DrawingBoard {
     this.swapColors.addEventListener('click', (e) => {
       e.stopPropagation();
       const tempColor = this.col.value;
+      const tempOpacity = this.opacities.col;
+      
       this.col.value = this.bgCol.value;
       this.bgCol.value = tempColor;
-      this.foregroundPreview.style.backgroundColor = this.col.value;
-      this.backgroundPreview.style.backgroundColor = this.bgCol.value;
+      
+      this.opacities.col = this.opacities.bgCol;
+      this.opacities.bgCol = tempOpacity;
+      
+      const fgColor = this.col.value;
+      const fgOpacity = this.opacities.col / 100;
+      const fgR = parseInt(fgColor.slice(1, 3), 16);
+      const fgG = parseInt(fgColor.slice(3, 5), 16);
+      const fgB = parseInt(fgColor.slice(5, 7), 16);
+      this.foregroundPreview.style.backgroundColor = `rgba(${fgR}, ${fgG}, ${fgB}, ${fgOpacity})`;
+      
+      const bgColor = this.bgCol.value;
+      const bgOpacity = this.opacities.bgCol / 100;
+      const bgR = parseInt(bgColor.slice(1, 3), 16);
+      const bgG = parseInt(bgColor.slice(3, 5), 16);
+      const bgB = parseInt(bgColor.slice(5, 7), 16);
+      this.backgroundPreview.style.backgroundColor = `rgba(${bgR}, ${bgG}, ${bgB}, ${bgOpacity})`;
+      
       this.updateCanvasColor();
       this.saveToStorage();
     });
