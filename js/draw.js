@@ -219,7 +219,7 @@ class DrawingBoard {
     console.log('指针位置:', saturation, brightness);
     
     // 转换为RGB
-    const rgb = this.hsbToRgb(this.currentHue, saturation / 100, brightness / 2 / 100);
+    const rgb = this.hsbToRgb(this.currentHue, saturation / 100, brightness / 100);
     const hex = this.rgbToHex(rgb[0], rgb[1], rgb[2]);
     
     // 更新选中的颜色输入框
@@ -323,20 +323,29 @@ class DrawingBoard {
     return p;
   }
 
-  hsbToRgb(h, s, brightness) {
-    let r, g, b;
+  hsbToRgb(h, s, b) {
+    let r, g, v;
     if (s === 0) {
-      r = g = b = brightness; // 灰色
+      r = g = v = b; // 灰色
     } else {
-      // 接着实现 HSB 转换为 RGB 的逻辑
-      const q = brightness < 0.5 ? brightness * (1 + s) : brightness + s - brightness * s;
-      const p = 2 * brightness - q;
-      r = this.hue2rgb(p, q, h/360 + 1/3);
-      g = this.hue2rgb(p, q, h/360);
-      b = this.hue2rgb(p, q, h/360 - 1/3);
+      const hue = h % 360;
+      const i = Math.floor(hue / 60);
+      const f = hue / 60 - i;
+      const p = b * (1 - s);
+      const q = b * (1 - f * s);
+      const t = b * (1 - (1 - f) * s);
+      
+      switch (i % 6) {
+        case 0: r = b, g = t, v = p; break;
+        case 1: r = q, g = b, v = p; break;
+        case 2: r = p, g = b, v = t; break;
+        case 3: r = p, g = q, v = b; break;
+        case 4: r = t, g = p, v = b; break;
+        case 5: r = b, g = p, v = q; break;
+      }
     }
     
-    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(v * 255)];
   }
 
   hslToRgb(h, s, l) {
