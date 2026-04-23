@@ -155,6 +155,8 @@ class DrawingBoard {
     console.log('当前透明度值:', this.opacities);
     console.log('当前选中颜色的透明度:', currentOpacity);
     this.opacityPointer.style.left = `${currentOpacity}%`;
+    // 更新透明度滑块值，确保滑块值与透明度值同步
+    this.opacitySlider.value = currentOpacity;
     console.log('透明度:', currentOpacity);
   }
 
@@ -228,6 +230,8 @@ class DrawingBoard {
       const rect = this.opacitySlider.getBoundingClientRect();
       const x = e.clientX - rect.left;
       opacity = Math.max(0, Math.min(100, (x / rect.width) * 100));
+      // 更新滑块的值，确保滑块位置与透明度值同步
+      this.opacitySlider.value = opacity;
     }
     
     // 更新当前选中颜色的透明度值
@@ -262,23 +266,9 @@ class DrawingBoard {
     } else if (this.selectedColorInput === this.bgCol) {
       this.backgroundPreview.style.backgroundColor = rgba;
       console.log('更新背景色预览');
-      // 保存当前画布内容
-      let currentImageData = null;
-      try {
-        currentImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-      } catch (e) {
-        // 忽略错误
-      }
-      // 更新画布背景
+      // 直接更新画布背景，不保存和恢复内容
+      // 因为透明度变化应该影响整个画布，包括背景
       this.updateCanvasColor();
-      // 恢复画布内容
-      if (currentImageData) {
-        try {
-          this.ctx.putImageData(currentImageData, 0, 0);
-        } catch (e) {
-          // 如果画布大小改变，无法恢复，忽略错误
-        }
-      }
     }
   }
 
@@ -485,8 +475,9 @@ class DrawingBoard {
     // 颜色区域移动事件
     this.colorArea.addEventListener('mousedown', (e) => {
       e.stopPropagation();
+      const _this = this; // 保存this指向
       const handleMouseMove = (event) => {
-        this.updateColorFromArea(event);
+        _this.updateColorFromArea(event);
       };
       
       const handleMouseUp = () => {
@@ -509,8 +500,9 @@ class DrawingBoard {
     // 色相滑块移动事件
     this.hueSlider.addEventListener('mousedown', (e) => {
       e.stopPropagation();
+      const _this = this; // 保存this指向
       const handleMouseMove = (event) => {
-        this.updateHueFromSlider(event);
+        _this.updateHueFromSlider(event);
       };
       
       const handleMouseUp = () => {
@@ -533,8 +525,9 @@ class DrawingBoard {
     // 透明度滑块移动事件
     this.opacitySlider.addEventListener('mousedown', (e) => {
       e.stopPropagation();
+      const _this = this; // 保存this指向
       const handleMouseMove = (event) => {
-        this.updateOpacityFromSlider(event);
+        _this.updateOpacityFromSlider(event);
       };
       
       const handleMouseUp = () => {
