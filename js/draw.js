@@ -25,6 +25,7 @@ class DrawingBoard {
     this.undoBtn = document.getElementById('undo');
     this.clearBtn = document.getElementById('clear');
     this.removeBtn = document.getElementById('remove');
+    this.redoBtn = document.getElementById('redo');
     this.toggleToolbarBtn = document.getElementById('toggleToolbar');
     this.toolbar = document.getElementById('toolbar');
     this.history = [];
@@ -528,6 +529,15 @@ class DrawingBoard {
       this.undo();
     });
 
+    // 恢复按钮事件
+    if (this.redoBtn) {
+      this.redoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        console.log('恢复按钮被点击');
+        this.redo();
+      });
+    }
+
     // 前景色预览点击事件
     this.foregroundPreview.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -759,6 +769,26 @@ class DrawingBoard {
       }
     } else {
       console.log('没有更多可撤销的操作');
+    }
+  }
+
+  redo() {
+    console.log('执行恢复操作，当前historyIndex:', this.historyIndex, '历史记录长度:', this.history.length);
+    if (this.historyIndex < this.history.length - 1) {
+      this.historyIndex++;
+      console.log('恢复到索引:', this.historyIndex);
+      try {
+        const imageData = this.history[this.historyIndex];
+        if (this.drawingCanvas.width === imageData.width && this.drawingCanvas.height === imageData.height) {
+          this.ctx.putImageData(imageData, 0, 0);
+        } else {
+          console.error('画布大小与历史记录不匹配，无法恢复');
+        }
+      } catch (e) {
+        console.error('恢复操作失败:', e);
+      }
+    } else {
+      console.log('没有更多可恢复的操作');
     }
   }
 
