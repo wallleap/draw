@@ -685,9 +685,30 @@ class DrawingBoard {
   }
 
   clearCanvas() {
-    // 使用背景色作为画布颜色
-    this.ctx.fillStyle = this.bgCol.value;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // 清除整个画布
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // 使用背景色作为画布颜色，应用透明度
+    const color = this.bgCol.value;
+    let r, g, b;
+    if (color.startsWith('#')) {
+      // 十六进制颜色
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      // 其他颜色格式，使用默认值
+      r = 0;
+      g = 0;
+      b = 0;
+    }
+    
+    const opacity = this.opacities.bgCol / 100;
+    if (opacity > 0) {
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    
     this.saveState();
   }
 
