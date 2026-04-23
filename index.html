@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,27 +7,85 @@
   <link rel="stylesheet" href="css/index.css">
 </head>
 <body>
-  <canvas id="myCanvas" width="1000" height="800"></canvas>
-  <div class="desc">
-    <h2>使用：</h2>
-    <ol>
-      <li>选择铅笔粗细：滑动或自己输入数值</li>
-      <li>选择颜色</li>
-      <li>点击铅笔按钮</li>
-      <li>在左边的画布上绘画</li>
-      <li>可以调节橡皮擦粗细点击按钮，涂抹</li>
-    </ol>
-    如果下载按钮失效，请右击选择保存~
+  <canvas id="myCanvas"></canvas>
+  <div class="topbar">
+    <!-- https://www.iconfont.cn/collections/detail?spm=a313x.user_detail.i1.dc64b3430.6d303a81tcWRvG&cid= -->
+    <button id="btn" class="btn btn-icon" title="下载图片">
+      <img src="icons/download.svg" alt="下载">
+    </button>
+    <button id="clear" class="btn btn-icon" title="清屏">
+      <img src="icons/clear.svg" alt="清屏">
+    </button>
+    <button id="undo" class="btn btn-icon" title="撤销">
+      <img src="icons/undo.svg" alt="撤销">
+    </button>
+    <div class="toolbar-toggle">
+      <button id="toggleToolbar" class="btn btn-icon" title="切换工具栏">
+        <img src="icons/menu.svg" alt="菜单栏">
+      </button>
+    </div>
   </div>
-  <p class="options">
-    <a id="btn" href="#0">下载图片</a>
-    铅笔粗细: <input id="penBold" type="range" value="1"/>
-    <input type="text" value="1" id="penBoldt"/>
-    颜色: <input type="color" id="col">
-    选择工具: <button id="pencil">铅笔</button>
-    <button id="eraser">橡皮擦</button>
-    橡皮粗细: <input type="range" id="eraserBl"/>
-</p>
-<script src="js/draw.js"></script>
+  <div class="toolbar" id="toolbar">
+    <div class="tool-section">
+      <h3>工具</h3>
+      <div class="tool-buttons">
+        <button id="pencil" class="btn btn-tool active" title="铅笔">
+          <img src="icons/pencil.svg" alt="铅笔">
+        </button>
+        <button id="eraser" class="btn btn-tool" title="橡皮擦">
+          <img src="icons/eraser.svg" alt="橡皮擦">
+        </button>
+      </div>
+    </div>
+    <div class="tool-section">
+      <h3>颜色</h3>
+      <div class="color-picker-container">
+        <div class="color-pickers">
+          <div class="foreground-color" id="foregroundColor">
+            <div class="color-preview" id="foregroundPreview" style="background-color: #000000;"></div>
+            <input hidden="hidden" type="text" id="col" class="color-input" value="#000000">
+          </div>
+          <div class="background-color" id="backgroundColor">
+            <div class="color-preview" id="backgroundPreview" style="background-color: #ffffff;"></div>
+            <input hidden="hidden" type="text" id="bgCol" class="color-input" value="#ffffff">
+          </div>
+          <button id="swapColors" class="btn swap-colors" title="切换颜色">
+            ↕
+          </button>
+        </div>
+      </div>
+
+    </div>
+    <div class="tool-section">
+      <h3>铅笔设置</h3>
+      <div class="tool-group">
+        <label>粗细:</label>
+        <input id="penBold" type="range" value="1" min="1" max="50"/>
+        <input type="text" value="1" id="penBoldt" class="input-small"/>
+      </div>
+    </div>
+    <div class="tool-section">
+      <h3>橡皮擦设置</h3>
+      <div class="tool-group">
+        <label>粗细:</label>
+        <input type="range" id="eraserBl" min="1" max="50" value="10"/>
+      </div>
+    </div>
+
+  </div>
+  <div class="color-picker-popup" id="colorPickerPopup">
+    <div class="color-area" id="colorArea">
+      <div class="color-picker-pointer" id="colorPickerPointer"></div>
+    </div>
+    <div class="color-sliders">
+      <div class="hue-slider" id="hueSlider">
+        <div class="hue-pointer" id="huePointer"></div>
+      </div>
+      <div class="opacity-slider" id="opacitySlider">
+        <div class="opacity-pointer" id="opacityPointer"></div>
+      </div>
+    </div>
+  </div>
+  <script src="js/draw.js"></script>
 </body>
 </html>

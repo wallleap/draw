@@ -1,88 +1,747 @@
-var c = document.getElementById('myCanvas');
-var ctx = c.getContext('2d'); 
-var penBold = document.getElementById('penBold');
-var eraserBl = document.getElementById('eraserBl');
-var penBoldt = document.getElementById('penBoldt');
-var col = document.getElementById('col');
-var pencil = document.getElementById('pencil');
-var eraser = document.getElementById('eraser');
-
-penBold.onmousedown = function () {
-  document.onmousemove = function () {
-    penBoldt.value = penBold.value;
-  }
-}
-eraserBl.onmousedown = function () {
-  document.onmousemove = function () {
-  }
-}
-
-penBoldt.onblur = function () {
-  penBold.value = penBoldt.value;
-}
-penBoldt.onkeydown = function (e) {
-  if (e.keyCode == 13) {
-    penBold.value = penBoldt.value;
-  }
-}
-
-pencil.onclick = function () {
-  document.body.style.cursor = "url(./cur/pencil.cur) 12 12,auto";
-  c.onmousedown = function (e) {
-    var e = e || event;
-    var x = e.clientX - c.offsetLeft;
-    var y = e.clientY - c.offsetTop;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    document.onmousemove = function (e) {
-
-      var e = e || event;
-      var x1 = e.clientX - c.offsetLeft;
-      var y1 = e.clientY - c.offsetTop;
-      ctx.strokeStyle = col.value;
-      ctx.lineTo(x1, y1);
-      ctx.lineWidth = penBold.value;
-      ctx.stroke();
-
+class DrawingBoard {
+  constructor() {
+    this.canvas = document.getElementById('myCanvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.penBold = document.getElementById('penBold');
+    this.eraserBl = document.getElementById('eraserBl');
+    this.penBoldt = document.getElementById('penBoldt');
+    this.col = document.getElementById('col');
+    this.bgCol = document.getElementById('bgCol');
+    this.foregroundPreview = document.getElementById('foregroundPreview');
+    this.backgroundPreview = document.getElementById('backgroundPreview');
+    this.swapColors = document.getElementById('swapColors');
+    this.colorPickerPopup = document.getElementById('colorPickerPopup');
+    this.colorArea = document.getElementById('colorArea');
+    this.colorPickerPointer = document.getElementById('colorPickerPointer');
+    this.hueSlider = document.getElementById('hueSlider');
+    this.huePointer = document.getElementById('huePointer');
+    this.opacitySlider = document.getElementById('opacitySlider');
+    this.opacityPointer = document.getElementById('opacityPointer');
+    this.pencil = document.getElementById('pencil');
+    this.eraser = document.getElementById('eraser');
+    this.btn = document.getElementById('btn');
+    this.undoBtn = document.getElementById('undo');
+    this.clearBtn = document.getElementById('clear');
+    this.toggleToolbarBtn = document.getElementById('toggleToolbar');
+    this.toolbar = document.getElementById('toolbar');
+    this.history = [];
+    this.historyIndex = -1;
+    this.currentTool = 'pencil';
+    this.selectedColorInput = this.col; // 默认选择前景色输入框
+    this.currentHue = 0; // 默认色相
+    this.opacities = { // 分别存储前景色和背景色的透明度
+      col: 100, // 前景色透明度（完全不透明）
+      bgCol: 0 // 背景色透明度（完全透明）
     };
-  };
-}
+    this.init();
+  }
+
+  init() {
+    this.resizeCanvas();
+    this.setupEventListeners();
+    // 设置默认工具为铅笔并更新光标
+    this.currentTool = 'pencil';
+    document.body.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
+    this.canvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
+    this.updateToolButtonState();
+    this.setupDrawingEvent();
+    // 打印初始的背景色和透明度
+    console.log('初始背景色:', this.bgCol.value);
+    console.log('初始背景色透明度:', this.opacities.bgCol);
+    console.log('初始前景色:', this.col.value);
+    console.log('初始前景色透明度:', this.opacities.col);
+    // 初始化画布
+    this.clearCanvas();
+    // 初始化颜色选择器
+    this.updateColorArea();
+  }
+
+  resizeCanvas() {
+    // 保存当前绘制内容
+    let currentImageData = null;
+    try {
+      currentImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+    } catch (e) {
+      // 忽略错误
+    }
+    
+    // 调整画布大小
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    
+    // 清除画布
+    // 使用背景色作为画布颜色，应用透明度
+    const color = this.bgCol.value;
+    let r, g, b;
+    if (color.startsWith('#')) {
+      // 十六进制颜色
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      // 其他颜色格式，使用默认值
+      r = 0;
+      g = 0;
+      b = 0;
+    }
+    
+    const opacity = this.opacities.bgCol / 100;
+    this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // 恢复之前的绘制内容
+    if (currentImageData) {
+      try {
+        this.ctx.putImageData(currentImageData, 0, 0);
+      } catch (e) {
+        // 如果画布大小改变，无法恢复，忽略错误
+      }
+    }
+  }
+
+  updateColorArea() {
+    // 根据当前色相更新颜色选择区域的背景
+    // 实现标准颜色选择器布局：
+    // 左上角：白色
+    // 右上角：纯色相
+    // 右下角：黑色
+    // 左下角：深色
+    this.colorArea.style.background = `linear-gradient(to bottom, #ffffff, #888888, #000000), radial-gradient(circle at right top, hsl(${this.currentHue}, 100%, 50%), transparent)`;
+    // this.colorArea.style.background = `linear-gradient(to bottom, #ffffff, #888888, #000000),
+    // radial-gradient(circle at right center, hsl(${this.currentHue}, 100%, 50%) -5%, transparent)`;
+    this.colorArea.style.backgroundBlendMode = 'multiply';
+  }
+
+  updateColorPickerFromInput() {
+    // 从输入框获取颜色值
+    const color = this.selectedColorInput.value;
+    console.log('updateColorPickerFromInput:', color);
+    console.log('selectedColorInput:', this.selectedColorInput);
+    console.log('selectedColorInput.id:', this.selectedColorInput.id);
+    // 解析颜色值
+    let r, g, b;
+    if (color.startsWith('#')) {
+      // 十六进制颜色
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      // 其他颜色格式，使用默认值
+      r = 0;
+      g = 0;
+      b = 0;
+    }
+    
+    // 转换为HSL
+    const hsl = this.rgbToHsl(r, g, b);
+    this.currentHue = hsl[0];
+    console.log('HSL:', hsl);
+    
+    // 更新颜色选择区域
+    this.updateColorArea();
+    
+    // 更新颜色选择器指针位置
+    const saturation = hsl[1] * 100;
+    const lightness = hsl[2] * 100;
+    this.colorPickerPointer.style.left = `${saturation}%`;
+    this.colorPickerPointer.style.top = `${100 - lightness}%`;
+    console.log('指针位置:', saturation, lightness);
+    
+    // 更新色相滑块指针位置
+    this.huePointer.style.left = `${(this.currentHue / 360) * 100}%`;
+    
+    // 更新透明度滑块指针位置，使用当前选中颜色的透明度
+    const currentOpacity = this.opacities[this.selectedColorInput.id];
+    console.log('当前透明度值:', this.opacities);
+    console.log('当前选中颜色的透明度:', currentOpacity);
+    this.opacityPointer.style.left = `${currentOpacity}%`;
+    console.log('透明度:', currentOpacity);
+  }
+
+  updateColorFromArea(e) {
+    // 获取颜色选择区域的位置和大小
+    const rect = this.colorArea.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    console.log('updateColorFromArea:', x, y);
+    
+    // 使用 HSB 颜色模型
+    const saturation = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const lightness = Math.max(0, Math.min(100, 100 - (y / rect.height) * 100));
+    const brightness = lightness;
+    
+    // 更新颜色选择器指针位置
+    this.colorPickerPointer.style.left = `${saturation}%`;
+    this.colorPickerPointer.style.top = `${100 - brightness}%`;
+    console.log('指针位置:', saturation, brightness);
+    
+    // 转换为RGB
+    const rgb = this.hsbToRgb(this.currentHue, saturation / 100, brightness / 2 / 100);
+    const hex = this.rgbToHex(rgb[0], rgb[1], rgb[2]);
+    
+    // 更新选中的颜色输入框
+    this.selectedColorInput.value = hex;
+    
+    // 更新颜色预览，应用当前选中颜色的透明度
+    const currentOpacity = this.opacities[this.selectedColorInput.id] / 100;
+    const rgba = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${currentOpacity})`;
+    if (this.selectedColorInput === this.col) {
+      this.foregroundPreview.style.backgroundColor = rgba;
+    } else if (this.selectedColorInput === this.bgCol) {
+      this.backgroundPreview.style.backgroundColor = rgba;
+      this.updateCanvasColor();
+    }
+  }
+
+  updateHueFromSlider(e) {
+    // 获取色相滑块的位置和大小
+    const rect = this.hueSlider.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    // 计算色相
+    this.currentHue = Math.max(0, Math.min(360, (x / rect.width) * 360));
+    
+    // 更新色相滑块指针位置
+    this.huePointer.style.left = `${(this.currentHue / 360) * 100}%`;
+    
+    // 更新颜色选择区域
+    this.updateColorArea();
+    
+    // 重新计算颜色
+    const colorAreaRect = this.colorArea.getBoundingClientRect();
+    const pointerLeft = parseInt(this.colorPickerPointer.style.left) || 0;
+    const pointerTop = parseInt(this.colorPickerPointer.style.top) || 0;
+    this.updateColorFromArea({ 
+      clientX: colorAreaRect.left + (pointerLeft / 100) * colorAreaRect.width, 
+      clientY: colorAreaRect.top + (pointerTop / 100) * colorAreaRect.height
+    });
+  }
+
+  updateOpacityFromSlider(e) {
+    let opacity;
+    // 检查事件类型，处理不同的事件
+    if (e.type === 'input') {
+      // 对于input事件，直接使用滑块的值
+      opacity = parseFloat(this.opacitySlider.value);
+    } else {
+      // 对于鼠标事件，计算透明度
+      const rect = this.opacitySlider.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      opacity = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    }
+    
+    // 更新当前选中颜色的透明度值
+    this.opacities[this.selectedColorInput.id] = opacity;
+    console.log('更新透明度:', this.selectedColorInput.id, ':', opacity);
+    console.log('当前透明度值:', this.opacities);
+    
+    // 更新透明度滑块指针位置
+    this.opacityPointer.style.left = `${opacity}%`;
+    
+    // 直接更新颜色预览，应用新的透明度
+    const color = this.selectedColorInput.value;
+    let r, g, b;
+    if (color.startsWith('#')) {
+      // 十六进制颜色
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      // 其他颜色格式，使用默认值
+      r = 0;
+      g = 0;
+      b = 0;
+    }
+    
+    // 更新颜色预览，应用新的透明度
+    const rgba = `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
+    console.log('更新颜色预览:', rgba);
+    if (this.selectedColorInput === this.col) {
+      this.foregroundPreview.style.backgroundColor = rgba;
+      console.log('更新前景色预览');
+    } else if (this.selectedColorInput === this.bgCol) {
+      this.backgroundPreview.style.backgroundColor = rgba;
+      console.log('更新背景色预览');
+      // 保存当前画布内容
+      let currentImageData = null;
+      try {
+        currentImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      } catch (e) {
+        // 忽略错误
+      }
+      // 更新画布背景
+      this.updateCanvasColor();
+      // 恢复画布内容
+      if (currentImageData) {
+        try {
+          this.ctx.putImageData(currentImageData, 0, 0);
+        } catch (e) {
+          // 如果画布大小改变，无法恢复，忽略错误
+        }
+      }
+    }
+  }
+
+  // 实现 hue 转换为 rgb
+  hue2rgb(p, q, t) {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q - p) * 6 * t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+    return p;
+  }
+
+  hsbToRgb(h, s, brightness) {
+    let r, g, b;
+    if (s === 0) {
+      r = g = b = brightness; // 灰色
+    } else {
+      // 接着实现 HSB 转换为 RGB 的逻辑
+      const q = brightness < 0.5 ? brightness * (1 + s) : brightness + s - brightness * s;
+      const p = 2 * brightness - q;
+      r = this.hue2rgb(p, q, h/360 + 1/3);
+      g = this.hue2rgb(p, q, h/360);
+      b = this.hue2rgb(p, q, h/360 - 1/3);
+    }
+    
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  }
+
+  hslToRgb(h, s, l) {
+    let r, g, b;
+    
+    if (s === 0) {
+      r = g = b = l; // 灰色
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1/6) return p + (q - p) * 6 * t;
+        if (t < 1/2) return q;
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+        return p;
+      };
+      
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h/360 + 1/3);
+      g = hue2rgb(p, q, h/360);
+      b = hue2rgb(p, q, h/360 - 1/3);
+    }
+    
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+  }
+
+  rgbToHsl(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    
+    if (max === min) {
+      h = s = 0; // 灰色
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      
+      h /= 6;
+    }
+    
+    return [Math.round(h * 360), s, l];
+  }
+
+  rgbToHex(r, g, b) {
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+  }
+
+  setupEventListeners() {
+    // 窗口大小改变事件
+    window.addEventListener('resize', () => {
+      console.log('窗口大小改变');
+      this.resizeCanvas();
+      // 窗口大小改变后，重新保存当前状态
+      this.saveState();
+    });
+
+    // 铅笔粗细滑块事件
+    this.penBold.addEventListener('input', () => {
+      this.penBoldt.value = this.penBold.value;
+    });
+
+    // 铅笔粗细输入框事件
+    this.penBoldt.addEventListener('blur', () => {
+      this.penBold.value = this.penBoldt.value;
+    });
+
+    this.penBoldt.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        this.penBold.value = this.penBoldt.value;
+      }
+    });
+
+    // 铅笔工具事件
+    this.pencil.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.currentTool = 'pencil';
+      document.body.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
+      this.canvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
+      this.updateToolButtonState();
+      this.setupDrawingEvent();
+    });
+
+    // 橡皮擦工具事件
+    this.eraser.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.currentTool = 'eraser';
+      document.body.style.cursor = "url(./cur/eraser.cur) 2 28,auto";
+      this.canvas.style.cursor = "url(./cur/eraser.cur) 2 28,auto";
+      this.updateToolButtonState();
+      this.setupDrawingEvent();
+    });
+
+    // 鼠标抬起事件
+    window.addEventListener('mouseup', (e) => {
+      // 检查事件目标是否是按钮，如果是则不保存状态
+      if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'IMG') {
+        console.log('鼠标抬起，保存状态');
+        document.onmousedown = null;
+        document.onmousemove = null;
+        // 恢复globalCompositeOperation到默认值
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.saveState();
+      }
+    });
+
+    // 下载按钮事件
+    this.btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.downloadImage();
+    });
+
+    // 清屏按钮事件
+    if (this.clearBtn) {
+      this.clearBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.clearCanvas();
+      });
+    }
+
+    // 撤销按钮事件
+    this.undoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      console.log('撤销按钮被点击');
+      this.undo();
+    });
+
+    // 前景色预览点击事件
+    this.foregroundPreview.addEventListener('click', (e) => {
+      e.stopPropagation();
+      console.log('前景色预览被点击');
+      this.selectedColorInput = this.col;
+      // 显示颜色选择器
+      this.colorPickerPopup.classList.add('show');
+      // 更新颜色选择器状态
+      this.updateColorPickerFromInput();
+      console.log('颜色选择器已显示');
+    });
+
+    // 背景色预览点击事件
+    this.backgroundPreview.addEventListener('click', (e) => {
+      e.stopPropagation();
+      console.log('背景色预览被点击');
+      this.selectedColorInput = this.bgCol;
+      // 显示颜色选择器
+      this.colorPickerPopup.classList.add('show');
+      // 更新颜色选择器状态
+      this.updateColorPickerFromInput();
+      console.log('颜色选择器已显示');
+    });
+
+    // 点击页面其他地方关闭颜色选择器
+    document.addEventListener('click', (e) => {
+      if (!this.colorPickerPopup.contains(e.target) && 
+          e.target !== this.foregroundPreview && 
+          e.target !== this.backgroundPreview) {
+        this.colorPickerPopup.classList.remove('show');
+      }
+    });
+
+    // 颜色区域点击事件
+    this.colorArea.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.updateColorFromArea(e);
+    });
+
+    // 颜色区域移动事件
+    this.colorArea.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const handleMouseMove = (event) => {
+        this.updateColorFromArea(event);
+      };
+      
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      this.updateColorFromArea(e);
+    });
+
+    // 色相滑块点击事件
+    this.hueSlider.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.updateHueFromSlider(e);
+    });
+
+    // 色相滑块移动事件
+    this.hueSlider.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const handleMouseMove = (event) => {
+        this.updateHueFromSlider(event);
+      };
+      
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      this.updateHueFromSlider(e);
+    });
+
+    // 透明度滑块点击事件
+    this.opacitySlider.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.updateOpacityFromSlider(e);
+    });
+
+    // 透明度滑块移动事件
+    this.opacitySlider.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const handleMouseMove = (event) => {
+        this.updateOpacityFromSlider(event);
+      };
+      
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      this.updateOpacityFromSlider(e);
+    });
+
+    // 透明度滑块输入事件（用于支持键盘操作）
+    this.opacitySlider.addEventListener('input', (e) => {
+      e.stopPropagation();
+      this.updateOpacityFromSlider(e);
+    });
+
+    // 前景色输入框事件
+    this.col.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const color = e.target.value;
+      this.foregroundPreview.style.backgroundColor = color;
+    });
+
+    // 背景色输入框事件
+    this.bgCol.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const color = e.target.value;
+      this.backgroundPreview.style.backgroundColor = color;
+      this.updateCanvasColor();
+    });
+
+    // 颜色切换按钮事件
+    this.swapColors.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tempColor = this.col.value;
+      this.col.value = this.bgCol.value;
+      this.bgCol.value = tempColor;
+      // 更新颜色预览
+      this.foregroundPreview.style.backgroundColor = this.col.value;
+      this.backgroundPreview.style.backgroundColor = this.bgCol.value;
+      this.updateCanvasColor();
+    });
 
 
-eraser.onclick = function () {
-  document.body.style.cursor = "url(./cur/eraser.cur) 12 12,auto";
-  c.onmousedown = function (e) {
-    var e = e || event;
-    var x = e.clientX - c.offsetLeft;
-    var y = e.clientY - c.offsetTop;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    document.onmousemove = function (e) {
-      var e = e || event;
-      var x1 = e.clientX - c.offsetLeft;
-      var y1 = e.clientY - c.offsetTop;
-      ctx.strokeStyle = 'gray';
-      ctx.lineTo(x1, y1);
-      ctx.lineWidth = eraserBl.value;
-      ctx.stroke();
 
+    // 工具栏切换事件
+    this.toggleToolbarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toolbar.classList.toggle('open');
+    });
+  }
+
+  setupDrawingEvent() {
+    const _this = this; // 保存this指向
+    this.canvas.onmousedown = (e) => {
+      const rect = _this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // 计算初始strokeStyle
+      if (_this.currentTool === 'pencil') {
+        // 将十六进制颜色转换为带透明度的RGBA颜色
+        const hexColor = _this.col.value;
+        const opacity = _this.opacities.col / 100;
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        _this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        console.log('铅笔颜色:', `rgba(${r}, ${g}, ${b}, ${opacity})`);
+        _this.ctx.lineWidth = _this.penBold.value;
+        // 设置合成模式，确保绘制时不会与之前的绘制混合
+        _this.ctx.globalCompositeOperation = 'source-over';
+      } else if (_this.currentTool === 'eraser') {
+        // 使用背景颜色进行擦除
+        _this.ctx.globalCompositeOperation = 'source-over';
+        _this.ctx.strokeStyle = _this.bgCol.value;
+        _this.ctx.lineWidth = _this.eraserBl.value;
+      }
+      
+      _this.ctx.beginPath();
+      _this.ctx.moveTo(x, y);
+      
+      document.onmousemove = (e) => {
+        const rect = _this.canvas.getBoundingClientRect();
+        const x1 = e.clientX - rect.left;
+        const y1 = e.clientY - rect.top;
+        
+        if (_this.currentTool === 'pencil') {
+          // 将十六进制颜色转换为带透明度的RGBA颜色
+          const hexColor = _this.col.value;
+          const opacity = _this.opacities.col / 100;
+          const r = parseInt(hexColor.slice(1, 3), 16);
+          const g = parseInt(hexColor.slice(3, 5), 16);
+          const b = parseInt(hexColor.slice(5, 7), 16);
+          _this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+          console.log('铅笔颜色:', `rgba(${r}, ${g}, ${b}, ${opacity})`);
+          _this.ctx.lineWidth = _this.penBold.value;
+          // 设置合成模式，确保绘制时不会与之前的绘制混合
+          _this.ctx.globalCompositeOperation = 'source-over';
+        } else if (_this.currentTool === 'eraser') {
+          // 使用背景颜色进行擦除
+          _this.ctx.globalCompositeOperation = 'source-over';
+          _this.ctx.strokeStyle = _this.bgCol.value;
+          _this.ctx.lineWidth = _this.eraserBl.value;
+        }
+        
+        _this.ctx.lineTo(x1, y1);
+        _this.ctx.stroke();
+      };
     };
-  };
+  }
+
+  saveState() {
+    // 保存当前画布状态到历史记录
+    try {
+      const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      this.history = this.history.slice(0, this.historyIndex + 1);
+      this.history.push(imageData);
+      this.historyIndex++;
+      console.log('保存状态，当前historyIndex:', this.historyIndex, '历史记录长度:', this.history.length);
+    } catch (e) {
+      console.error('保存状态失败:', e);
+    }
+  }
+
+  undo() {
+    console.log('执行撤销操作，当前historyIndex:', this.historyIndex, '历史记录长度:', this.history.length);
+    if (this.historyIndex > 0) {
+      this.historyIndex--;
+      console.log('撤销到索引:', this.historyIndex);
+      try {
+        const imageData = this.history[this.historyIndex];
+        // 确保画布大小与历史记录中的图像数据大小一致
+        if (this.canvas.width === imageData.width && this.canvas.height === imageData.height) {
+          this.ctx.putImageData(imageData, 0, 0);
+        } else {
+          console.error('画布大小与历史记录不匹配，无法撤销');
+        }
+      } catch (e) {
+        console.error('撤销操作失败:', e);
+      }
+    } else {
+      console.log('没有更多可撤销的操作');
+    }
+  }
+
+  clearCanvas() {
+    // 使用背景色作为画布颜色
+    this.ctx.fillStyle = this.bgCol.value;
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.saveState();
+  }
+
+  updateCanvasColor() {
+    // 清除整个画布
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // 使用背景色作为画布颜色，应用透明度
+    const color = this.bgCol.value;
+    let r, g, b;
+    if (color.startsWith('#')) {
+      // 十六进制颜色
+      r = parseInt(color.slice(1, 3), 16);
+      g = parseInt(color.slice(3, 5), 16);
+      b = parseInt(color.slice(5, 7), 16);
+    } else {
+      // 其他颜色格式，使用默认值
+      r = 0;
+      g = 0;
+      b = 0;
+    }
+    
+    const opacity = this.opacities.bgCol / 100;
+    if (opacity > 0) {
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    
+    this.saveState();
+  }
+
+  downloadImage() {
+    const dataURL = this.canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = 'drawing.png';
+    link.href = dataURL;
+    link.click();
+  }
+
+  updateToolButtonState() {
+    // 移除所有工具按钮的激活状态
+    this.pencil.classList.remove('active');
+    this.eraser.classList.remove('active');
+    
+    // 为当前工具添加激活状态
+    if (this.currentTool === 'pencil') {
+      this.pencil.classList.add('active');
+    } else if (this.currentTool === 'eraser') {
+      this.eraser.classList.add('active');
+    }
+  }
 }
 
-
-window.onmouseup = function () {
-
-  document.onmousedown = null;
-  document.onmousemove = null;
-}
-
-
-var btn = document.getElementById('btn');
-
-btn.onclick = function () {
-  var myCanvas = document.getElementById('myCanvas');
-  var image = myCanvas.toDataURL("image/png").replace("image/png", "image/octet-stream;Content-Disposition: attachment;filename=foobar.png"); 
-  // var image = myCanvas.toDataURL("image/png").replace("image/png", "image/octet-stream"); 
-  window.location.href=image; // it will save locally 
-}
+// 初始化画板
+window.addEventListener('DOMContentLoaded', () => {
+  new DrawingBoard();
+});
