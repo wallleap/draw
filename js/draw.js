@@ -203,9 +203,7 @@ class DrawingBoard {
     // 右上角：纯色相
     // 右下角：黑色
     // 左下角：深色
-    this.colorArea.style.background = `linear-gradient(to bottom, #ffffff, #888888, #000000), radial-gradient(circle at right top, hsl(${this.currentHue}, 100%, 50%), transparent)`;
-    // this.colorArea.style.background = `linear-gradient(to bottom, #ffffff, #888888, #000000),
-    // radial-gradient(circle at right center, hsl(${this.currentHue}, 100%, 50%) -5%, transparent)`;
+    this.colorArea.style.background = `linear-gradient(to bottom, #fff, #000), radial-gradient(circle at right center, hsl(${this.currentHue}, 100%, 50%), transparent 100%)`;
     this.colorArea.style.backgroundBlendMode = 'multiply';
   }
 
