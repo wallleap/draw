@@ -24,6 +24,7 @@ class DrawingBoard {
     this.btn = document.getElementById('btn');
     this.undoBtn = document.getElementById('undo');
     this.clearBtn = document.getElementById('clear');
+    this.removeBtn = document.getElementById('remove');
     this.toggleToolbarBtn = document.getElementById('toggleToolbar');
     this.toolbar = document.getElementById('toolbar');
     this.history = [];
@@ -75,6 +76,38 @@ class DrawingBoard {
       console.log('数据已保存到 localforage');
     } catch (e) {
       console.error('保存到 localforage 失败:', e);
+    }
+  }
+
+  async removeStorage() {
+    try {
+      await localforage.removeItem('drawingHistory');
+      await localforage.removeItem('historyIndex');
+      await localforage.removeItem('drawingSettings');
+      console.log('存储已删除');
+      
+      this.history = [];
+      this.historyIndex = -1;
+      this.ctx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
+      this.bgCtx.clearRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
+      
+      this.col.value = '#000000';
+      this.bgCol.value = '#ffffff';
+      this.penBold.value = 1;
+      this.eraserBl.value = 10;
+      this.penBoldt.value = 1;
+      this.opacities = { col: 100, bgCol: 0 };
+      this.currentTool = 'pencil';
+      this.foregroundPreview.style.backgroundColor = '#000000';
+      this.backgroundPreview.style.backgroundColor = '#ffffff';
+      
+      this.updateToolButtonState();
+      this.updateBackgroundColor();
+      this.updateColorPickerFromInput();
+      
+      console.log('画布已重置');
+    } catch (e) {
+      console.error('删除存储失败:', e);
     }
   }
 
@@ -477,6 +510,14 @@ class DrawingBoard {
       this.clearBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.clearCanvas();
+      });
+    }
+
+    // 删除按钮事件
+    if (this.removeBtn) {
+      this.removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeStorage();
       });
     }
 
