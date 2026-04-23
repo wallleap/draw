@@ -27,33 +27,92 @@ class DrawingBoard {
     this.history = [];
     this.historyIndex = -1;
     this.currentTool = 'pencil';
-    this.selectedColorInput = this.col; // 默认选择前景色输入框
-    this.currentHue = 0; // 默认色相
-    this.opacities = { // 分别存储前景色和背景色的透明度
-      col: 100, // 前景色透明度（完全不透明）
-      bgCol: 0 // 背景色透明度（完全透明）
+    this.selectedColorInput = this.col;
+    this.currentHue = 0;
+    this.opacities = {
+      col: 100,
+      bgCol: 0
     };
+    this.storageReady = false;
     this.init();
   }
 
-  init() {
+  async init() {
     this.resizeCanvas();
     this.setupEventListeners();
-    // 设置默认工具为铅笔并更新光标
     this.currentTool = 'pencil';
     document.body.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
     this.canvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
     this.updateToolButtonState();
     this.setupDrawingEvent();
-    // 打印初始的背景色和透明度
     console.log('初始背景色:', this.bgCol.value);
     console.log('初始背景色透明度:', this.opacities.bgCol);
     console.log('初始前景色:', this.col.value);
     console.log('初始前景色透明度:', this.opacities.col);
-    // 初始化画布
     this.clearCanvas();
-    // 初始化颜色选择器
     this.updateColorArea();
+    await this.loadFromStorage();
+    this.storageReady = true;
+  }
+
+  async saveToStorage() {
+    if (!this.storageReady) return;
+    try {
+      const historyData = this.history.map(imgData => imgData.data.buffer);
+      await localforage.setItem('drawingHistory', historyData);
+      await localforage.setItem('historyIndex', this.historyIndex);
+      const settings = {
+        col: this.col.value,
+        bgCol: this.bgCol.value,
+        penBold: this.penBold.value,
+        eraserBl: this.eraserBl.value,
+        opacities: this.opacities,
+        currentTool: this.currentTool
+      };
+      await localforage.setItem('drawingSettings', settings);
+      console.log('数据已保存到 localforage');
+    } catch (e) {
+      console.error('保存到 localforage 失败:', e);
+    }
+  }
+
+  async loadFromStorage() {
+    try {
+      const historyData = await localforage.getItem('drawingHistory');
+      const historyIndex = await localforage.getItem('historyIndex');
+      const settings = await localforage.getItem('drawingSettings');
+      if (historyData && historyIndex !== null) {
+        this.history = historyData.map(buffer => {
+          const imgData = this.ctx.createImageData(
+            this.canvas.width || window.innerWidth,
+            this.canvas.height || window.innerHeight
+          );
+          imgData.data.set(new Uint8ClampedArray(buffer));
+          return imgData;
+        });
+        this.historyIndex = historyIndex;
+        if (this.history.length > 0 && this.historyIndex >= 0) {
+          this.ctx.putImageData(this.history[this.historyIndex], 0, 0);
+        }
+        console.log('历史记录已从 localforage 加载');
+      }
+      if (settings) {
+        this.col.value = settings.col || '#000000';
+        this.bgCol.value = settings.bgCol || '#ffffff';
+        this.penBold.value = settings.penBold || 1;
+        this.eraserBl.value = settings.eraserBl || 10;
+        this.penBoldt.value = this.penBold.value;
+        this.opacities = settings.opacities || { col: 100, bgCol: 0 };
+        this.currentTool = settings.currentTool || 'pencil';
+        this.foregroundPreview.style.backgroundColor = this.col.value;
+        this.backgroundPreview.style.backgroundColor = this.bgCol.value;
+        this.updateToolButtonState();
+        this.updateColorPickerFromInput();
+        console.log('设置已从 localforage 加载');
+      }
+    } catch (e) {
+      console.error('从 localforage 加载失败:', e);
+    }
   }
 
   resizeCanvas() {
@@ -366,6 +425,7 @@ class DrawingBoard {
     // 铅笔粗细滑块事件
     this.penBold.addEventListener('input', () => {
       this.penBoldt.value = this.penBold.value;
+      this.saveToStorage();
     });
 
     // 铅笔粗细输入框事件
@@ -377,6 +437,10 @@ class DrawingBoard {
       if (e.key === 'Enter') {
         this.penBold.value = this.penBoldt.value;
       }
+    });
+
+    this.eraserBl.addEventListener('input', () => {
+      this.saveToStorage();
     });
 
     // 铅笔工具事件
@@ -397,6 +461,7 @@ class DrawingBoard {
       this.canvas.style.cursor = "url(./cur/eraser.cur) 2 28,auto";
       this.updateToolButtonState();
       this.setupDrawingEvent();
+      this.saveToStorage();
     });
 
     // 鼠标抬起事件
@@ -552,6 +617,7 @@ class DrawingBoard {
       e.stopPropagation();
       const color = e.target.value;
       this.foregroundPreview.style.backgroundColor = color;
+      this.saveToStorage();
     });
 
     // 背景色输入框事件
@@ -560,6 +626,7 @@ class DrawingBoard {
       const color = e.target.value;
       this.backgroundPreview.style.backgroundColor = color;
       this.updateCanvasColor();
+      this.saveToStorage();
     });
 
     // 颜色切换按钮事件
@@ -568,10 +635,10 @@ class DrawingBoard {
       const tempColor = this.col.value;
       this.col.value = this.bgCol.value;
       this.bgCol.value = tempColor;
-      // 更新颜色预览
       this.foregroundPreview.style.backgroundColor = this.col.value;
       this.backgroundPreview.style.backgroundColor = this.bgCol.value;
       this.updateCanvasColor();
+      this.saveToStorage();
     });
 
 
@@ -644,13 +711,13 @@ class DrawingBoard {
   }
 
   saveState() {
-    // 保存当前画布状态到历史记录
     try {
       const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
       this.history = this.history.slice(0, this.historyIndex + 1);
       this.history.push(imageData);
       this.historyIndex++;
       console.log('保存状态，当前historyIndex:', this.historyIndex, '历史记录长度:', this.history.length);
+      this.saveToStorage();
     } catch (e) {
       console.error('保存状态失败:', e);
     }
