@@ -404,3 +404,51 @@ body {
     background-color: #f8fafc;
     color: #475569;
 }
+
+.zoom-controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 4px;
+    z-index: 999;
+}
+
+.zoom-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.zoom-btn img {
+    width: 16px;
+    height: 16px;
+}
+
+.zoom-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.zoom-btn:active {
+    background-color: #d0d0d0;
+}
+
+.zoom-level {
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    min-width: 60px;
+    text-align: center;
+}

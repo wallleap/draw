@@ -29,6 +29,9 @@ class DrawingBoard {
     this.toggleToolbarBtn = document.getElementById('toggleToolbar');
     this.toolbar = document.getElementById('toolbar');
     this.toast = document.getElementById('toast');
+    this.zoomOutBtn = document.getElementById('zoomOut');
+    this.zoomInBtn = document.getElementById('zoomIn');
+    this.zoomLevel = document.getElementById('zoomLevel');
     this.history = [];
     this.historyIndex = -1;
     this.currentTool = 'pencil';
@@ -38,6 +41,10 @@ class DrawingBoard {
       col: 100,
       bgCol: 0
     };
+    this.zoom = 1;
+    this.minZoom = 0.1;
+    this.maxZoom = 5;
+    this.zoomStep = 0.1;
     this.storageReady = false;
     this.init();
   }
@@ -58,6 +65,7 @@ class DrawingBoard {
     this.updateColorArea();
     await this.loadFromStorage();
     this.storageReady = true;
+    this.fitToScreen();
   }
 
   async saveToStorage() {
@@ -121,19 +129,30 @@ class DrawingBoard {
       const historyIndex = await localforage.getItem('historyIndex');
       const settings = await localforage.getItem('drawingSettings');
       if (historyData && historyIndex !== null) {
-        this.history = historyData.map(buffer => {
-          const imgData = this.ctx.createImageData(
-            this.drawingCanvas.width || window.innerWidth,
-            this.drawingCanvas.height || window.innerHeight
-          );
-          imgData.data.set(new Uint8ClampedArray(buffer));
-          return imgData;
-        });
-        this.historyIndex = historyIndex;
-        if (this.history.length > 0 && this.historyIndex >= 0) {
-          this.ctx.putImageData(this.history[this.historyIndex], 0, 0);
+        this.history = [];
+        for (const buffer of historyData) {
+          try {
+            const expectedSize = (this.drawingCanvas.width || window.innerWidth) * (this.drawingCanvas.height || window.innerHeight) * 4;
+            if (buffer.byteLength === expectedSize) {
+              const imgData = this.ctx.createImageData(
+                this.drawingCanvas.width || window.innerWidth,
+                this.drawingCanvas.height || window.innerHeight
+              );
+              imgData.data.set(new Uint8ClampedArray(buffer));
+              this.history.push(imgData);
+            }
+          } catch (e) {
+            console.error('历史记录尺寸不匹配，跳过:', e);
+          }
         }
-        console.log('历史记录已从 localforage 加载');
+        if (this.history.length > 0) {
+          this.historyIndex = Math.min(historyIndex, this.history.length - 1);
+          this.ctx.putImageData(this.history[this.historyIndex], 0, 0);
+          console.log('历史记录已从 localforage 加载');
+        } else {
+          console.log('没有匹配尺寸的历史记录');
+          this.historyIndex = -1;
+        }
       }
       if (settings) {
         this.col.value = settings.col || '#000000';
@@ -446,6 +465,7 @@ class DrawingBoard {
     window.addEventListener('resize', () => {
       console.log('窗口大小改变');
       this.resizeCanvas();
+      this.fitToScreen();
       // 窗口大小改变后，重新保存当前状态
       this.saveState();
     });
@@ -709,14 +729,29 @@ class DrawingBoard {
       e.stopPropagation();
       this.toolbar.classList.toggle('open');
     });
+
+    // 缩放按钮事件
+    if (this.zoomOutBtn) {
+      this.zoomOutBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.zoomOut();
+      });
+    }
+
+    if (this.zoomInBtn) {
+      this.zoomInBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.zoomIn();
+      });
+    }
   }
 
   setupDrawingEvent() {
     const _this = this;
     this.drawingCanvas.onmousedown = (e) => {
       const rect = _this.drawingCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const x = (e.clientX - rect.left) / _this.zoom;
+      const y = (e.clientY - rect.top) / _this.zoom;
 
       if (_this.currentTool === 'pencil') {
         const hexColor = _this.col.value;
@@ -737,8 +772,8 @@ class DrawingBoard {
 
       document.onmousemove = (e) => {
         const rect = _this.drawingCanvas.getBoundingClientRect();
-        const x1 = e.clientX - rect.left;
-        const y1 = e.clientY - rect.top;
+        const x1 = (e.clientX - rect.left) / _this.zoom;
+        const y1 = (e.clientY - rect.top) / _this.zoom;
 
         if (_this.currentTool === 'pencil') {
           const hexColor = _this.col.value;
@@ -840,6 +875,50 @@ class DrawingBoard {
     setTimeout(() => {
       this.toast.classList.remove('show');
     }, 3000);
+  }
+
+  zoomIn() {
+    if (this.zoom < this.maxZoom) {
+      this.zoom += this.zoomStep;
+      this.updateZoom();
+    }
+  }
+
+  zoomOut() {
+    if (this.zoom > this.minZoom) {
+      this.zoom -= this.zoomStep;
+      this.updateZoom();
+    }
+  }
+
+  updateZoom() {
+    this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom));
+    const zoomPercent = Math.round(this.zoom * 100);
+    if (this.zoomLevel) {
+      this.zoomLevel.textContent = `${zoomPercent}%`;
+    }
+    this.applyZoom();
+  }
+
+  applyZoom() {
+    this.drawingCanvas.style.transform = `scale(${this.zoom})`;
+    this.drawingCanvas.style.transformOrigin = 'center center';
+    this.bgCanvas.style.transform = `scale(${this.zoom})`;
+    this.bgCanvas.style.transformOrigin = 'center center';
+  }
+
+  fitToScreen() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const canvasWidth = this.drawingCanvas.width;
+    const canvasHeight = this.drawingCanvas.height;
+    
+    const scaleX = windowWidth / canvasWidth;
+    const scaleY = windowHeight / canvasHeight;
+    const scale = Math.min(scaleX, scaleY, 1);
+    
+    this.zoom = scale;
+    this.updateZoom();
   }
 
   clearCanvas() {
