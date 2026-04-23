@@ -1,7 +1,9 @@
 class DrawingBoard {
   constructor() {
-    this.canvas = document.getElementById('myCanvas');
-    this.ctx = this.canvas.getContext('2d');
+    this.drawingCanvas = document.getElementById('drawingCanvas');
+    this.ctx = this.drawingCanvas.getContext('2d');
+    this.bgCanvas = document.getElementById('backgroundCanvas');
+    this.bgCtx = this.bgCanvas.getContext('2d');
     this.penBold = document.getElementById('penBold');
     this.eraserBl = document.getElementById('eraserBl');
     this.penBoldt = document.getElementById('penBoldt');
@@ -39,17 +41,17 @@ class DrawingBoard {
 
   async init() {
     this.resizeCanvas();
+    this.updateBackgroundColor();
     this.setupEventListeners();
     this.currentTool = 'pencil';
     document.body.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
-    this.canvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
+    this.drawingCanvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
     this.updateToolButtonState();
     this.setupDrawingEvent();
     console.log('初始背景色:', this.bgCol.value);
     console.log('初始背景色透明度:', this.opacities.bgCol);
     console.log('初始前景色:', this.col.value);
     console.log('初始前景色透明度:', this.opacities.col);
-    this.clearCanvas();
     this.updateColorArea();
     await this.loadFromStorage();
     this.storageReady = true;
@@ -84,8 +86,8 @@ class DrawingBoard {
       if (historyData && historyIndex !== null) {
         this.history = historyData.map(buffer => {
           const imgData = this.ctx.createImageData(
-            this.canvas.width || window.innerWidth,
-            this.canvas.height || window.innerHeight
+            this.drawingCanvas.width || window.innerWidth,
+            this.drawingCanvas.height || window.innerHeight
           );
           imgData.data.set(new Uint8ClampedArray(buffer));
           return imgData;
@@ -108,6 +110,7 @@ class DrawingBoard {
         this.backgroundPreview.style.backgroundColor = this.bgCol.value;
         this.updateToolButtonState();
         this.updateColorPickerFromInput();
+        this.updateBackgroundColor();
         console.log('设置已从 localforage 加载');
       }
     } catch (e) {
@@ -116,46 +119,25 @@ class DrawingBoard {
   }
 
   resizeCanvas() {
-    // 保存当前绘制内容
     let currentImageData = null;
     try {
-      currentImageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      currentImageData = this.ctx.getImageData(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
     } catch (e) {
-      // 忽略错误
     }
-    
-    // 调整画布大小
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-    
-    // 清除画布
-    // 使用背景色作为画布颜色，应用透明度
-    const color = this.bgCol.value;
-    let r, g, b;
-    if (color.startsWith('#')) {
-      // 十六进制颜色
-      r = parseInt(color.slice(1, 3), 16);
-      g = parseInt(color.slice(3, 5), 16);
-      b = parseInt(color.slice(5, 7), 16);
-    } else {
-      // 其他颜色格式，使用默认值
-      r = 0;
-      g = 0;
-      b = 0;
-    }
-    
-    const opacity = this.opacities.bgCol / 100;
-    this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // 恢复之前的绘制内容
+
+    this.drawingCanvas.width = window.innerWidth;
+    this.drawingCanvas.height = window.innerHeight;
+    this.bgCanvas.width = window.innerWidth;
+    this.bgCanvas.height = window.innerHeight;
+
     if (currentImageData) {
       try {
         this.ctx.putImageData(currentImageData, 0, 0);
       } catch (e) {
-        // 如果画布大小改变，无法恢复，忽略错误
       }
     }
+
+    this.updateBackgroundColor();
   }
 
   updateColorArea() {
@@ -448,7 +430,7 @@ class DrawingBoard {
       e.stopPropagation();
       this.currentTool = 'pencil';
       document.body.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
-      this.canvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
+      this.drawingCanvas.style.cursor = "url(./cur/pencil.cur) 2 28,auto";
       this.updateToolButtonState();
       this.setupDrawingEvent();
     });
@@ -458,7 +440,7 @@ class DrawingBoard {
       e.stopPropagation();
       this.currentTool = 'eraser';
       document.body.style.cursor = "url(./cur/eraser.cur) 2 28,auto";
-      this.canvas.style.cursor = "url(./cur/eraser.cur) 2 28,auto";
+      this.drawingCanvas.style.cursor = "url(./cur/eraser.cur) 2 28,auto";
       this.updateToolButtonState();
       this.setupDrawingEvent();
       this.saveToStorage();
@@ -466,12 +448,10 @@ class DrawingBoard {
 
     // 鼠标抬起事件
     window.addEventListener('mouseup', (e) => {
-      // 检查事件目标是否是按钮，如果是则不保存状态
       if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'IMG') {
         console.log('鼠标抬起，保存状态');
         document.onmousedown = null;
         document.onmousemove = null;
-        // 恢复globalCompositeOperation到默认值
         this.ctx.globalCompositeOperation = 'source-over';
         this.saveState();
       }
@@ -651,59 +631,48 @@ class DrawingBoard {
   }
 
   setupDrawingEvent() {
-    const _this = this; // 保存this指向
-    this.canvas.onmousedown = (e) => {
-      const rect = _this.canvas.getBoundingClientRect();
+    const _this = this;
+    this.drawingCanvas.onmousedown = (e) => {
+      const rect = _this.drawingCanvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
-      // 计算初始strokeStyle
+
       if (_this.currentTool === 'pencil') {
-        // 将十六进制颜色转换为带透明度的RGBA颜色
         const hexColor = _this.col.value;
         const opacity = _this.opacities.col / 100;
         const r = parseInt(hexColor.slice(1, 3), 16);
         const g = parseInt(hexColor.slice(3, 5), 16);
         const b = parseInt(hexColor.slice(5, 7), 16);
         _this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-        console.log('铅笔颜色:', `rgba(${r}, ${g}, ${b}, ${opacity})`);
         _this.ctx.lineWidth = _this.penBold.value;
-        // 设置合成模式，确保绘制时不会与之前的绘制混合
         _this.ctx.globalCompositeOperation = 'source-over';
       } else if (_this.currentTool === 'eraser') {
-        // 使用背景颜色进行擦除
-        _this.ctx.globalCompositeOperation = 'source-over';
-        _this.ctx.strokeStyle = _this.bgCol.value;
+        _this.ctx.globalCompositeOperation = 'destination-out';
         _this.ctx.lineWidth = _this.eraserBl.value;
       }
-      
+
       _this.ctx.beginPath();
       _this.ctx.moveTo(x, y);
-      
+
       document.onmousemove = (e) => {
-        const rect = _this.canvas.getBoundingClientRect();
+        const rect = _this.drawingCanvas.getBoundingClientRect();
         const x1 = e.clientX - rect.left;
         const y1 = e.clientY - rect.top;
-        
+
         if (_this.currentTool === 'pencil') {
-          // 将十六进制颜色转换为带透明度的RGBA颜色
           const hexColor = _this.col.value;
           const opacity = _this.opacities.col / 100;
           const r = parseInt(hexColor.slice(1, 3), 16);
           const g = parseInt(hexColor.slice(3, 5), 16);
           const b = parseInt(hexColor.slice(5, 7), 16);
           _this.ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-          console.log('铅笔颜色:', `rgba(${r}, ${g}, ${b}, ${opacity})`);
           _this.ctx.lineWidth = _this.penBold.value;
-          // 设置合成模式，确保绘制时不会与之前的绘制混合
           _this.ctx.globalCompositeOperation = 'source-over';
         } else if (_this.currentTool === 'eraser') {
-          // 使用背景颜色进行擦除
-          _this.ctx.globalCompositeOperation = 'source-over';
-          _this.ctx.strokeStyle = _this.bgCol.value;
+          _this.ctx.globalCompositeOperation = 'destination-out';
           _this.ctx.lineWidth = _this.eraserBl.value;
         }
-        
+
         _this.ctx.lineTo(x1, y1);
         _this.ctx.stroke();
       };
@@ -712,7 +681,7 @@ class DrawingBoard {
 
   saveState() {
     try {
-      const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      const imageData = this.ctx.getImageData(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
       this.history = this.history.slice(0, this.historyIndex + 1);
       this.history.push(imageData);
       this.historyIndex++;
@@ -730,8 +699,7 @@ class DrawingBoard {
       console.log('撤销到索引:', this.historyIndex);
       try {
         const imageData = this.history[this.historyIndex];
-        // 确保画布大小与历史记录中的图像数据大小一致
-        if (this.canvas.width === imageData.width && this.canvas.height === imageData.height) {
+        if (this.drawingCanvas.width === imageData.width && this.drawingCanvas.height === imageData.height) {
           this.ctx.putImageData(imageData, 0, 0);
         } else {
           console.error('画布大小与历史记录不匹配，无法撤销');
@@ -745,63 +713,46 @@ class DrawingBoard {
   }
 
   clearCanvas() {
-    // 清除整个画布
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // 使用背景色作为画布颜色，应用透明度
+    this.ctx.clearRect(0, 0, this.drawingCanvas.width, this.drawingCanvas.height);
+    this.saveState();
+  }
+
+  updateBackgroundColor() {
+    this.bgCtx.clearRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
+
     const color = this.bgCol.value;
     let r, g, b;
     if (color.startsWith('#')) {
-      // 十六进制颜色
       r = parseInt(color.slice(1, 3), 16);
       g = parseInt(color.slice(3, 5), 16);
       b = parseInt(color.slice(5, 7), 16);
     } else {
-      // 其他颜色格式，使用默认值
       r = 0;
       g = 0;
       b = 0;
     }
-    
+
     const opacity = this.opacities.bgCol / 100;
     if (opacity > 0) {
-      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.bgCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+      this.bgCtx.fillRect(0, 0, this.bgCanvas.width, this.bgCanvas.height);
     }
-    
-    this.saveState();
   }
 
   updateCanvasColor() {
-    // 清除整个画布
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // 使用背景色作为画布颜色，应用透明度
-    const color = this.bgCol.value;
-    let r, g, b;
-    if (color.startsWith('#')) {
-      // 十六进制颜色
-      r = parseInt(color.slice(1, 3), 16);
-      g = parseInt(color.slice(3, 5), 16);
-      b = parseInt(color.slice(5, 7), 16);
-    } else {
-      // 其他颜色格式，使用默认值
-      r = 0;
-      g = 0;
-      b = 0;
-    }
-    
-    const opacity = this.opacities.bgCol / 100;
-    if (opacity > 0) {
-      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-    
-    this.saveState();
+    this.updateBackgroundColor();
   }
 
   downloadImage() {
-    const dataURL = this.canvas.toDataURL('image/png');
+    const compositeCanvas = document.createElement('canvas');
+    compositeCanvas.width = this.drawingCanvas.width;
+    compositeCanvas.height = this.drawingCanvas.height;
+    const compositeCtx = compositeCanvas.getContext('2d');
+
+    compositeCtx.drawImage(this.bgCanvas, 0, 0);
+    compositeCtx.drawImage(this.drawingCanvas, 0, 0);
+
+    const dataURL = compositeCanvas.toDataURL('image/png');
     const link = document.createElement('a');
     link.download = 'drawing.png';
     link.href = dataURL;
