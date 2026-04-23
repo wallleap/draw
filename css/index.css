@@ -361,5 +361,46 @@ body {
 }
 
 .toolbar-toggle {
-  margin-left: 10px;
+    margin-left: 10px;
+}
+
+.toast {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: white;
+    padding: .5em 1.5em;
+    border-radius: 100vh;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 1001;
+    text-align: center;
+    min-width: 120px;
+    max-width: 300px;
+}
+
+.toast.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.toast.success {
+    background-color: #f0f9ff;
+    color: #03a120;
+}
+
+.toast.error {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.toast.info {
+    background-color: #f8fafc;
+    color: #475569;
 }

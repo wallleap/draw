@@ -28,6 +28,7 @@ class DrawingBoard {
     this.redoBtn = document.getElementById('redo');
     this.toggleToolbarBtn = document.getElementById('toggleToolbar');
     this.toolbar = document.getElementById('toolbar');
+    this.toast = document.getElementById('toast');
     this.history = [];
     this.historyIndex = -1;
     this.currentTool = 'pencil';
@@ -107,8 +108,10 @@ class DrawingBoard {
       this.updateColorPickerFromInput();
       
       console.log('画布已重置');
+      this.showToast('存储已删除，画布已重置', 'success');
     } catch (e) {
       console.error('删除存储失败:', e);
+      this.showToast('删除存储失败', 'error');
     }
   }
 
@@ -763,12 +766,15 @@ class DrawingBoard {
           this.ctx.putImageData(imageData, 0, 0);
         } else {
           console.error('画布大小与历史记录不匹配，无法撤销');
+          this.showToast('撤销失败：画布大小不匹配', 'error');
         }
       } catch (e) {
         console.error('撤销操作失败:', e);
+        this.showToast('撤销失败', 'error');
       }
     } else {
       console.log('没有更多可撤销的操作');
+      this.showToast('没有更多可撤销的操作', 'info');
     }
   }
 
@@ -783,13 +789,39 @@ class DrawingBoard {
           this.ctx.putImageData(imageData, 0, 0);
         } else {
           console.error('画布大小与历史记录不匹配，无法恢复');
+          this.showToast('恢复失败：画布大小不匹配', 'error');
         }
       } catch (e) {
         console.error('恢复操作失败:', e);
+        this.showToast('恢复失败', 'error');
       }
     } else {
       console.log('没有更多可恢复的操作');
+      this.showToast('没有更多可恢复的操作', 'info');
     }
+  }
+
+  showToast(message, type = 'info') {
+    if (!this.toast) return;
+    
+    this.toast.textContent = message;
+    this.toast.className = 'toast';
+    this.toast.classList.add(type);
+    
+    const topbar = document.querySelector('.topbar');
+    if (topbar) {
+      const topbarRect = topbar.getBoundingClientRect();
+      const top = topbarRect.bottom + 15;
+      this.toast.style.top = `${top}px`;
+    } else {
+      this.toast.style.top = '80px';
+    }
+    
+    this.toast.classList.add('show');
+    
+    setTimeout(() => {
+      this.toast.classList.remove('show');
+    }, 3000);
   }
 
   clearCanvas() {
@@ -837,6 +869,7 @@ class DrawingBoard {
     link.download = 'drawing.png';
     link.href = dataURL;
     link.click();
+    this.showToast('图片已下载', 'success');
   }
 
   updateToolButtonState() {
